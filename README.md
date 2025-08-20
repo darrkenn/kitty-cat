@@ -16,6 +16,7 @@ cargo build --release
 ````
 ## Usage
 ````bash
+kitty-cat #Retrives and displays image
 kitty-cat -t  #Retrieves all usable tags.
 kitty-cat -s  #Retrieves image but doesnt display it.
 kitty-cat -c  #Sets up folders/files.
