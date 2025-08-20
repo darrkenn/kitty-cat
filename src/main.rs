@@ -2,10 +2,11 @@ mod config;
 mod get;
 
 use std::{
-    env,
+    env::{self, home_dir},
     error::Error,
     fs::{self, File, remove_file},
     io::copy,
+    path::Path,
     process::{self, Command},
 };
 
@@ -30,6 +31,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 "-s" => {
                     silent = true;
+                }
+                "-c" => {
+                    setup();
                 }
                 _ => {}
             }
@@ -120,4 +124,30 @@ fn create_image(
         fs::copy(&image_location, cached_image).expect("Couldnt copy image to cache");
     }
     remove_file(image_location).expect("Couldnt remove file");
+}
+
+fn setup() {
+    if let Some(home) = home_dir() {
+        let config_location = format!("{}/.config/kitty-cat", &home.to_string_lossy());
+        let config_file = format!("{}/config.toml", &config_location);
+
+        let image_location = format!("{}/.local/share/kitty-cat", &home.to_string_lossy());
+        let cache_location = format!("{}/cache", &image_location);
+
+        if !Path::new(&config_location).exists() {
+            fs::create_dir(config_location).expect("Cant create config_loation directory");
+        }
+        if !Path::new(&config_file).exists() {
+            fs::write(config_file, "offline = false\ncache = true")
+                .expect("Couldnt write data to file");
+        }
+        if !Path::new(&image_location).exists() {
+            fs::create_dir(image_location).expect("Cant create image_location directory");
+        }
+        if !Path::new(&cache_location).exists() {
+            fs::create_dir(cache_location).expect("Cant create cache_location");
+        }
+        println!("Successfully created all folders/files");
+        process::exit(0);
+    }
 }

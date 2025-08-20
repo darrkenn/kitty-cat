@@ -1,4 +1,4 @@
-use crate::config::*;
+use crate::config::{self, *};
 use ansi_term::Color;
 use reqwest::blocking::get;
 use serde_json::Value;
@@ -7,7 +7,7 @@ use std::{
     error::Error,
     fs::{self, File},
     io::BufWriter,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process,
 };
 
@@ -82,20 +82,32 @@ pub fn get_url(config: &Config) -> String {
 }
 
 pub fn get_config() -> PathBuf {
-    if let Some(home) = home_dir() {
-        let mut config_location = home.to_str().unwrap().to_owned();
-        config_location.push_str("/.config/kitty-cat/config.toml");
-        PathBuf::from(config_location)
+    if let Some(mut config_location) = home_dir() {
+        config_location.push(".config/kitty-cat/config.toml");
+
+        if config_location.exists() {
+            config_location
+        } else {
+            println!("Config file not found!");
+            println!("Run kitty-cat -c or create the file yourself.");
+            process::exit(1)
+        }
     } else {
-        panic!("Cant find config file!");
+        panic!("Cant get home_dir")
     }
 }
 
 pub fn get_local_data() -> String {
-    if let Some(home) = home_dir() {
-        let mut image_location = home.to_str().unwrap().to_owned();
-        image_location.push_str("/.local/share/kitty-cat");
-        image_location
+    if let Some(mut image_location) = home_dir() {
+        image_location.push(".local/share/kitty-cat");
+
+        if image_location.exists() {
+            image_location.to_string_lossy().into_owned()
+        } else {
+            println!("Image folder not found!");
+            println!("Run kitty-cat -c or create the folder yourself");
+            process::exit(1)
+        }
     } else {
         panic!("Cant get image location")
     }
