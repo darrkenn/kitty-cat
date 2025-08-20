@@ -1,37 +1,40 @@
+mod get;
+
 use std::{
-    env::home_dir,
     error::Error,
-    fs::{self, File},
+    fs::{self, File, remove_file},
     io::copy,
-    path::PathBuf,
     process::Command,
 };
 
+use crate::get::*;
+use chrono::Local;
+use rand::{rng, seq::IndexedRandom};
 use reqwest::blocking::get;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct Dimensions {
+pub struct Dimensions {
     height: u32,
     width: u32,
 }
 
 #[derive(Deserialize)]
-struct Says {
+pub struct Says {
     sentence: String,
     size: Option<u8>,
     color: Option<String>,
 }
 
 #[derive(Deserialize)]
-enum Alignment {
+pub enum Alignment {
     Left,
     Center,
     Right,
 }
 
 #[derive(Deserialize)]
-enum Filter {
+pub enum Filter {
     Blur,
     Mono,
     Negate,
@@ -39,7 +42,8 @@ enum Filter {
 }
 
 #[derive(Deserialize)]
-struct Config {
+pub struct Config {
+    offline: bool,
     cache: bool,
     alignment: Option<Alignment>,
     tags: Option<Vec<String>>,
@@ -51,6 +55,7 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
+            offline: false,
             cache: false,
             alignment: Some(Alignment::Left),
             tags: None,
@@ -81,78 +86,47 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config: Config =
         toml::from_str((config_string).as_ref()).expect("Cant parse config string");
 
-    //If cache is set to false it will get a new image.
-    if !config.cache {
+    let cache_folder = format!("{}/cache", get_local_data());
+
+    if !config.offline {
+        let now = Local::now();
+        let formatted_time = now.format("%H:%M:%S");
+        let image_name: String = format!("cat_{formatted_time}.png");
+        let image_location: String = format!("{}/{}", get_local_data(), image_name);
+
+        //Makes request to api
         let url: String = get_url(&config);
         let mut response = get(url)?;
-        let mut file = File::create(get_image_location()).expect("Cant create file");
-        copy(&mut response, &mut file).expect("Cant write file");
-    }
 
-    Command::new("kitten")
-        .arg("icat")
-        .arg("--align")
-        .arg(config.alignment_to_string())
-        .arg(get_image_location())
-        .status()
-        .expect("Couldnt get image");
+        //Creates the .png file by copying data from the response to a file.
+        let mut file = File::create(&image_location).expect("Cant create file");
+        copy(&mut response, &mut file).expect("Cant write file");
+
+        load_image(config.alignment_to_string(), image_location.to_owned());
+
+        if config.cache {
+            let cached_image = format!("{cache_folder}/{image_name}");
+            fs::copy(&image_location, cached_image).expect("Couldnt copy image to cache");
+        }
+        remove_file(image_location).expect("Couldnt remove file");
+    } else {
+        let images = get_cached_images(cache_folder.clone());
+        let mut rng = rng();
+        if let Some(image) = images.choose(&mut rng) {
+            let image_location = format!("{cache_folder}/{image}");
+            load_image(config.alignment_to_string(), image_location);
+        }
+    }
 
     Ok(())
 }
 
-fn get_url(config: &Config) -> String {
-    let base = "https://cataas.com/cat";
-    let mut params: Vec<String> = Vec::new();
-    let mut path: Vec<String> = Vec::new();
-
-    if let Some(tags) = &config.tags {
-        if !tags.is_empty() {
-            if tags.len() != 1 {
-                path.push(format!("/{}", tags.join(",")));
-            } else {
-                path.push(format!("/{}", tags[0]));
-            }
-        }
-    }
-    if let Some(says) = &config.says {
-        path.push(format!("says/{}", says.sentence));
-        if let Some(size) = says.size {
-            params.push(format!("fontSize={size}"));
-        }
-        if let Some(color) = &says.color {
-            params.push(format!("fontColor={color}"));
-        }
-    }
-    if let Some(filter) = &config.filter {
-        params.push(format!("filter={filter}"));
-    }
-    if let Some(dimensions) = &config.dimensions {
-        params.push(format!(
-            "height={}&width={}",
-            dimensions.height, dimensions.width
-        ));
-    }
-
-    let url = format!("{}{}?{}", base, path.join("/"), params.join("&"));
-    url
-}
-
-fn get_config() -> PathBuf {
-    if let Some(home) = home_dir() {
-        let mut config_location = home.to_str().unwrap().to_owned();
-        config_location.push_str("/.config/kitty-cat/config.toml");
-        PathBuf::from(config_location)
-    } else {
-        panic!("Cant find config file!");
-    }
-}
-
-fn get_image_location() -> String {
-    if let Some(home) = home_dir() {
-        let mut image_location = home.to_str().unwrap().to_owned();
-        image_location.push_str("/.local/share/kitty-cat/cat.png");
-        image_location
-    } else {
-        panic!("Cant get image location")
-    }
+fn load_image(alignment: String, location: String) {
+    Command::new("kitten")
+        .arg("icat")
+        .arg("--align")
+        .arg(alignment)
+        .arg(location)
+        .status()
+        .expect("Couldnt get image");
 }
