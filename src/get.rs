@@ -1,6 +1,6 @@
 use crate::config::*;
 use ansi_term::Color;
-use reqwest::blocking::{Response, get};
+use reqwest::blocking::get;
 use serde_json::Value;
 use std::{
     env::home_dir,
