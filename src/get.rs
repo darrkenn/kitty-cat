@@ -1,6 +1,15 @@
-use std::{env::home_dir, fs, path::PathBuf};
-
-use crate::Config;
+use crate::config::*;
+use ansi_term::Color;
+use reqwest::blocking::{Response, get};
+use serde_json::Value;
+use std::{
+    env::home_dir,
+    error::Error,
+    fs::{self, File},
+    io::BufWriter,
+    path::PathBuf,
+    process,
+};
 
 pub fn get_url(config: &Config) -> String {
     let base = "https://cataas.com/cat";
@@ -26,8 +35,41 @@ pub fn get_url(config: &Config) -> String {
         }
     }
     if let Some(filter) = &config.filter {
-        params.push(format!("filter={filter}"));
+        if let Some(kind) = &filter.kind {
+            params.push(format!("filter={}", kind.to_string()));
+
+            if kind.is_custom() {
+                if let Some(brightness) = filter.brightness {
+                    params.push(format!("brightness={brightness}"));
+                }
+                if let Some(lightness) = filter.lightness {
+                    params.push(format!("lightness={lightness}"));
+                }
+                if let Some(saturation) = filter.saturation {
+                    params.push(format!("saturation={saturation}"));
+                }
+                if let Some(hue) = filter.hue {
+                    params.push(format!("hue={hue}"));
+                }
+                if let Some(rgb) = &filter.rgb {
+                    if let Some(r) = rgb.r {
+                        params.push(format!("r={r}"));
+                    }
+                    if let Some(g) = rgb.g {
+                        params.push(format!("g={g}"));
+                    }
+                    if let Some(b) = rgb.b {
+                        params.push(format!("b={b}"));
+                    }
+                }
+            }
+        }
     }
+
+    if let Some(image_type) = &config.image_type {
+        params.push(format!("type={}", image_type.to_string()));
+    }
+
     if let Some(dimensions) = &config.dimensions {
         params.push(format!(
             "height={}&width={}",
@@ -74,4 +116,20 @@ pub fn get_cached_images(cache_location: String) -> Vec<String> {
         }
     };
     images
+}
+
+pub fn get_tags() -> Result<(), Box<dyn Error>> {
+    let url: String = "https://cataas.com/api/tags".to_string();
+    let response = get(&url)?;
+
+    let file = File::create("tags.json")?;
+    let mut writer = BufWriter::new(file);
+
+    let data: Value = serde_json::from_str::<Value>(&response.text()?)?;
+    serde_json::to_writer_pretty(&mut writer, &data)?;
+    println!(
+        "{}",
+        Color::Green.bold().paint("Successfully retrived tags")
+    );
+    process::exit(0);
 }
