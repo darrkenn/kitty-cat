@@ -11,3 +11,14 @@ chrono = "0.4.41"
 rand = "0.9.2"
 serde_json = "1.0.143"
 ansi_term = "0.12.1"
+
+[profile.release]
+lto = false
+codegen-units = 16
+opt-level = 3
+debug = false
+strip = "none"
+debug-assertions = false
+overflow-checks = false
+rpath = false
+incremental = false
