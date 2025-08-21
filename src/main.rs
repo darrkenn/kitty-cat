@@ -17,7 +17,7 @@ use rand::{rng, seq::IndexedRandom};
 use reqwest::blocking::{Response, get};
 use serde_json::Value;
 
-const IMAGE_FORMATS: [&str; 3] = ["jpeg", "png", "gif"];
+pub const IMAGE_FORMATS: [&str; 3] = ["jpeg", "png", "gif"];
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -63,7 +63,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         silent,
                     );
                 } else {
-                    println!("Oh no! Response from the server: ");
                     let error = response.text().unwrap_or("Couldnt get error".to_string());
                     if let Ok(json) = serde_json::from_str::<Value>(&error) {
                         println!(
@@ -134,20 +133,26 @@ fn setup() {
         let image_location = format!("{}/.local/share/kitty-cat", &home.to_string_lossy());
         let cache_location = format!("{}/cache", &image_location);
 
-        if !Path::new(&config_location).exists() {
-            fs::create_dir(config_location).expect("Cant create config_loation directory");
+        let paths: [String; 4] = [
+            config_location,
+            config_file.to_owned(),
+            image_location,
+            cache_location,
+        ];
+
+        for path in paths {
+            if !Path::new(&path).exists() {
+                if path != config_file {
+                    fs::create_dir(&path).expect(&format!("Cant create dir: {}", path))
+                } else {
+                    fs::write(path, "offline = false\ncache=true")
+                        .expect("Couldnt write config file");
+                }
+            }
         }
-        if !Path::new(&config_file).exists() {
-            fs::write(config_file, "offline = false\ncache = true")
-                .expect("Couldnt write data to file");
-        }
-        if !Path::new(&image_location).exists() {
-            fs::create_dir(image_location).expect("Cant create image_location directory");
-        }
-        if !Path::new(&cache_location).exists() {
-            fs::create_dir(cache_location).expect("Cant create cache_location");
-        }
-        println!("Successfully created all folders/files");
+
+        println!("Successfull!");
+        println!("Check https://github.com/darrkenn/kitty-cat for a example config.toml");
         process::exit(0);
     }
 }

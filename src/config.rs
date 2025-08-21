@@ -1,3 +1,6 @@
+use core::fmt;
+use std::fmt::Display;
+
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -24,7 +27,6 @@ pub enum Alignment {
 #[derive(Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
-    Blur,
     Mono,
     Negate,
     Custom,
@@ -97,27 +99,29 @@ impl Config {
     }
 }
 
-impl Kind {
-    pub fn to_string(&self) -> String {
+impl Display for Kind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Kind::Blur => "blur".to_string(),
-            Kind::Mono => "mono".to_string(),
-            Kind::Negate => "negate".to_string(),
-            Kind::Custom => "custom".to_string(),
+            Kind::Mono => write!(f, "mono"),
+            Kind::Negate => write!(f, "negate"),
+            Kind::Custom => write!(f, "custom"),
         }
-    }
-    pub fn is_custom(&self) -> bool {
-        if self == &Kind::Custom { true } else { false }
     }
 }
 
-impl ImageType {
-    pub fn to_string(&self) -> String {
+impl Display for ImageType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ImageType::Xsmall => "xsmall".to_string(),
-            ImageType::Small => "small".to_string(),
-            ImageType::Medium => "medium".to_string(),
-            ImageType::Square => "square".to_string(),
+            ImageType::Xsmall => write!(f, "xsmall"),
+            ImageType::Small => write!(f, "small"),
+            ImageType::Medium => write!(f, "medium"),
+            ImageType::Square => write!(f, "square"),
         }
+    }
+}
+
+impl Kind {
+    pub fn is_custom(&self) -> bool {
+        if self == &Kind::Custom { true } else { false }
     }
 }
